@@ -26,29 +26,29 @@ data_g5_02 <- data_g5_02[-g5_02_length,]
 Ts <- 0.2
 Tiempo <- seq(Ts, length(data_g5_01$VFSC)*Ts, Ts)
 
-#Plot G5-001 - VFSC
-ggplot(data_g5_01, aes(x=Tiempo, y=VFSC)) +
-  geom_line(color="#60c70c", size=0.7, alpha=1, linetype=1) +
-  ggtitle("Time vs VFSC - G5-001") + 
-  labs(y= "VFSC (ml/sec)", x = "Time (s)")
-
-#Plot G5-001 - PAM
-ggplot(data_g5_01, aes(x=Tiempo, y=PAM)) +
-  geom_line(color="#fc7303", size=0.7, alpha=1, linetype=1) +
-  ggtitle("Time vs PAM - G5-001") + 
-  labs(y= "PAM (mmHg)", x = "Time (s)")
-
-#Plot G5-002 - VFSC
-ggplot(data_g5_02, aes(x=Tiempo, y=VFSC)) +
-  geom_line(color="#60c70c", size=0.7, alpha=1, linetype=1) +
-  ggtitle("Time vs VFSC - G5-001") + 
-  labs(y= "VFSC (ml/sec)", x = "Time (s)")
-
-#Plot G5-002 - PAM
-ggplot(data_g5_02, aes(x=Tiempo, y=PAM)) +
-  geom_line(color="#fc7303", size=0.7, alpha=1, linetype=1) +
-  ggtitle("Time vs PAM - G5-001") + 
-  labs(y= "PAM (mmHg)", x = "Time (s)")
+# #Plot G5-001 - VFSC
+# ggplot(data_g5_01, aes(x=Tiempo, y=VFSC)) +
+#   geom_line(color="#60c70c", size=0.7, alpha=1, linetype=1) +
+#   ggtitle("Time vs VFSC - G5-001") + 
+#   labs(y= "VFSC (ml/sec)", x = "Time (s)")
+# 
+# #Plot G5-001 - PAM
+# ggplot(data_g5_01, aes(x=Tiempo, y=PAM)) +
+#   geom_line(color="#fc7303", size=0.7, alpha=1, linetype=1) +
+#   ggtitle("Time vs PAM - G5-001") + 
+#   labs(y= "PAM (mmHg)", x = "Time (s)")
+# 
+# #Plot G5-002 - VFSC
+# ggplot(data_g5_02, aes(x=Tiempo, y=VFSC)) +
+#   geom_line(color="#60c70c", size=0.7, alpha=1, linetype=1) +
+#   ggtitle("Time vs VFSC - G5-001") + 
+#   labs(y= "VFSC (ml/sec)", x = "Time (s)")
+# 
+# #Plot G5-002 - PAM
+# ggplot(data_g5_02, aes(x=Tiempo, y=PAM)) +
+#   geom_line(color="#fc7303", size=0.7, alpha=1, linetype=1) +
+#   ggtitle("Time vs PAM - G5-001") + 
+#   labs(y= "PAM (mmHg)", x = "Time (s)")
 
 retardos_multi <- function(SignalData, lags) {
   signal.uni <- SignalData
@@ -84,33 +84,82 @@ grid_nu <- seq(0.1, 0.9, 0.1)
 grid_gamma <- 2^seq(-4, 12, 1)
 grid_lag <- seq(1,5,1)
 
+#=============================================
+#Models generated using G5_01
+#=============================================
 PAMn <- (data_g5_01$PAM - min(data_g5_01$PAM))/(max(data_g5_01$PAM) - min(data_g5_01$PAM))
 VFSCn <- (data_g5_01$VFSC - min(data_g5_01$VFSC))/(max(data_g5_01$VFSC) - min(data_g5_01$VFSC))
 
-PAMn_test <-(data_g5_02$PAM - min(data_g5_02$PAM))/(max(data_g5_02$PAM) - min(data_g5_02$PAM))
-VFSCn_test <-(data_g5_02$VFSC - min(data_g5_02$VFSC))/(max(data_g5_02$VFSC) - min(data_g5_02$VFSC))
+normalized_data <- data.frame(PAMn, VFSCn)
 
-train_data <- data.frame(PAMn, VFSCn)
-test_data <- data.frame(PAMn_test, VFSCn_test)
+ind <- sample(2, nrow(normalized_data), replace = TRUE,prob = c(0.5, 0.5))
+
+train_data_A <- normalized_data[ind==1,]
+train_data_B <- normalized_data[ind==2,]
   
+test_data_A <- normalized_data[ind==2,]
+test_data_B <- normalized_data[ind==1,]
+
 params <-expand.grid(lagsList = grid_lag, cost = grid_cost, nu = grid_nu, gamma = grid_gamma)
 
-output <- (c(foreach(i = 1:nrow(params), combine = rbind, .inorder = FALSE)
-             %dopar% {
-               c <- params[i,]$cost
-               n <- params[i,]$nu
-               g <- params[i,]$gamma
-               l <- params[i,]$lagsList
-               
-               lag <- list(PAMn=1, VFSCn=0)
-               signal.train <- retardos_multi(train_data, lag)
-               retDatos = signal.train$folded.signal
-               
-               x = subset(retDatos, select = -VFSCn)
-               y = retDatos$VFSCn
-               
-               modelo <- svm(x, y, type = "nu-regression", kernel = "radial", 
-                             cost = c, nu = n, gamma = g)
-               
-               
-             }))
+getModels <- function(train, test, params) {
+  start_time <- Sys.time()
+  output_par <- (c(foreach(i = 1:nrow(params), combine = rbind, .inorder = FALSE)
+                   %dopar% {
+                     c <- params[i,]$cost
+                     n <- params[i,]$nu
+                     g <- params[i,]$gamma
+                     l <- params[i,]$lagsList
+                     
+                     lag <- list(PAMn=1, VFSCn=0)
+                     signal.train <- retardos_multi(train, lag)
+                     retDatos = signal.train$folded.signal
+                     
+                     x = subset(retDatos, select = -VFSCn)
+                     y = retDatos$VFSCn
+                     
+                     modelo <- svm(x, y, type = "nu-regression", kernel = "radial", 
+                                   cost = c, nu = n, gamma = g)
+                     
+                     
+                     signal.test <- retardos_multi(test, lag)
+                     retDatos.test = signal.test$folded.signal
+                     
+                     x_test = subset(retDatos.test, select = -VFSCn)
+                     y_test = retDatos.test$VFSCn
+                     
+                     pred <- predict(modelo, x_test)
+                     corr_pred <- cor(pred, y_test, method = "pearson")
+                     
+                     c(l, c, n, g, corr_pred)
+                   }))
+  
+  end_time <- Sys.time()
+  print(end_time - start_time)
+
+  output <- matrix(unlist(output_par), ncol = 5, byrow = TRUE)
+  best_models <- output[order(output[, 5], decreasing = TRUE),]
+  return(best_models)
+}
+
+
+best_models_g5_01_A <- getModels(train_data_A, test_data_A, params)
+df_g5_01_A <- as.data.frame(best_models_g5_01_A)
+colnames(df_g5_01_A) <- c("lag", "cost", "nu", "gamma", "corr_pred")
+df_g5_01_A <- df_g5_01_A[order(df_g5_01_A$corr_pred), ]
+
+write.csv(df_g5_01_A, "./output/best_models_g5_01_A.csv", row.names = FALSE)
+print(best_models_g5_01_A)
+
+
+best_models_g5_01_B <- getModels(train_data_B, test_data_B, params)
+df_g5_01_B <- as.data.frame(best_models_g5_01_B)
+colnames(df_g5_01_B) <- c("lag", "cost", "nu", "gamma", "corr_pred")
+df_g5_01_B <- df_g5_01_B[order(df_g5_01_B$corr_pred), ]
+
+write.csv(df_g5_01_B, "./output/best_models_g5_01_B.csv", row.names = FALSE)
+
+
+#=============================================
+#Models generated using G5_02
+#=============================================

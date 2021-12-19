@@ -78,30 +78,6 @@ retardos_multi <- function(SignalData, lags) {
   return=list(folded.signal = folded.signal, lagged.columns.names = lagged.columns.names)
 }
 
-#Generate parameters
-grid_cost <- 2^seq(-4,12,1)
-grid_nu <- seq(0.1, 0.9, 0.1)
-grid_gamma <- 2^seq(-4, 12, 1)
-grid_lag <- seq(1,5,1)
-
-#=============================================
-#Models generated using G5_01
-#=============================================
-PAMn <- (data_g5_01$PAM - min(data_g5_01$PAM))/(max(data_g5_01$PAM) - min(data_g5_01$PAM))
-VFSCn <- (data_g5_01$VFSC - min(data_g5_01$VFSC))/(max(data_g5_01$VFSC) - min(data_g5_01$VFSC))
-
-normalized_data <- data.frame(PAMn, VFSCn)
-
-ind <- sample(2, nrow(normalized_data), replace = TRUE,prob = c(0.5, 0.5))
-
-train_data_A <- normalized_data[ind==1,]
-train_data_B <- normalized_data[ind==2,]
-  
-test_data_A <- normalized_data[ind==2,]
-test_data_B <- normalized_data[ind==1,]
-
-params <-expand.grid(lagsList = grid_lag, cost = grid_cost, nu = grid_nu, gamma = grid_gamma)
-
 getModels <- function(train, test, params) {
   start_time <- Sys.time()
   output_par <- (c(foreach(i = 1:nrow(params), combine = rbind, .inorder = FALSE)
@@ -136,22 +112,45 @@ getModels <- function(train, test, params) {
   
   end_time <- Sys.time()
   print(end_time - start_time)
-
+  
   output <- matrix(unlist(output_par), ncol = 5, byrow = TRUE)
   best_models <- output[order(output[, 5], decreasing = TRUE),]
   return(best_models)
 }
 
+#Generate parameters
+grid_cost <- 2^seq(-4,12,1)
+grid_nu <- seq(0.1, 0.9, 0.1)
+grid_gamma <- 2^seq(-4, 12, 1)
+grid_lag <- seq(1,5,1)
 
+#=============================================
+#Models generated using G5_01
+#=============================================
+PAMn <- (data_g5_01$PAM - min(data_g5_01$PAM))/(max(data_g5_01$PAM) - min(data_g5_01$PAM))
+VFSCn <- (data_g5_01$VFSC - min(data_g5_01$VFSC))/(max(data_g5_01$VFSC) - min(data_g5_01$VFSC))
+
+normalized_data <- data.frame(PAMn, VFSCn)
+
+ind <- sample(2, nrow(normalized_data), replace = TRUE,prob = c(0.5, 0.5))
+
+train_data_A <- normalized_data[ind==1,]
+train_data_B <- normalized_data[ind==2,]
+  
+test_data_A <- normalized_data[ind==2,]
+test_data_B <- normalized_data[ind==1,]
+
+params <-expand.grid(lagsList = grid_lag, cost = grid_cost, nu = grid_nu, gamma = grid_gamma)
+
+#G5_01 -> A (train) - B (test)
 best_models_g5_01_A <- getModels(train_data_A, test_data_A, params)
 df_g5_01_A <- as.data.frame(best_models_g5_01_A)
 colnames(df_g5_01_A) <- c("lag", "cost", "nu", "gamma", "corr_pred")
 df_g5_01_A <- df_g5_01_A[order(df_g5_01_A$corr_pred), ]
 
 write.csv(df_g5_01_A, "./output/best_models_g5_01_A.csv", row.names = FALSE)
-print(best_models_g5_01_A)
 
-
+#G5_01 -> B (train) - A (test)
 best_models_g5_01_B <- getModels(train_data_B, test_data_B, params)
 df_g5_01_B <- as.data.frame(best_models_g5_01_B)
 colnames(df_g5_01_B) <- c("lag", "cost", "nu", "gamma", "corr_pred")
@@ -163,3 +162,32 @@ write.csv(df_g5_01_B, "./output/best_models_g5_01_B.csv", row.names = FALSE)
 #=============================================
 #Models generated using G5_02
 #=============================================
+PAMn_g5_02 <- (data_g5_02$PAM - min(data_g5_02$PAM))/(max(data_g5_02$PAM) - min(data_g5_02$PAM))
+VFSCn_g5_02 <- (data_g5_02$VFSC - min(data_g5_02$VFSC))/(max(data_g5_02$VFSC) - min(data_g5_02$VFSC))
+
+normalized_data_g5_02 <- data.frame(PAMn, VFSCn)
+
+ind_g5_02 <- sample(2, nrow(normalized_data_g5_02), replace = TRUE,prob = c(0.5, 0.5))
+
+train_data_A_g5_02 <- normalized_data_g5_02[ind_g5_02==1,]
+train_data_B_g5_02 <- normalized_data_g5_02[ind_g5_02==2,]
+
+test_data_A_g5_02 <- normalized_data[ind==2,]
+test_data_B_g5_02 <- normalized_data[ind==1,]
+
+#G5_02 -> A (train) - B (test)
+best_models_g5_02_A <- getModels(train_data_A_g5_02, test_data_A_g5_02, params)
+df_g5_02_A <- as.data.frame(best_models_g5_02_A)
+colnames(df_g5_02_A) <- c("lag", "cost", "nu", "gamma", "corr_pred")
+df_g5_02_A <- df_g5_02_A[order(df_g5_02_A$corr_pred), ]
+
+write.csv(df_g5_02_A, "./output/best_models_g5_02_A.csv", row.names = FALSE)
+
+#G5_02 -> B (train) - A (test)
+best_models_g5_02_B <- getModels(train_data_B_g5_02, test_data_B_g5_02, params)
+df_g5_02_B <- as.data.frame(best_models_g5_02_B)
+colnames(df_g5_02_B) <- c("lag", "cost", "nu", "gamma", "corr_pred")
+df_g5_02_B <- df_g5_02_B[order(df_g5_02_B$corr_pred), ]
+
+write.csv(df_g5_02_B, "./output/best_models_g5_02_B.csv", row.names = FALSE)
+

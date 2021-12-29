@@ -191,3 +191,164 @@ df_g5_02_B <- df_g5_02_B[order(df_g5_02_B$corr_pred), ]
 
 write.csv(df_g5_02_B, "./output/best_models_g5_02_B.csv", row.names = FALSE)
 
+
+#=============================================
+# Comportamiento modelo G5-01
+#=============================================
+#Utilizando el mejor modelo obtenido
+res_best_model_g5_01 <- read.csv("./output/best_models_g5_01_B.csv")
+test_best_model_g5_01 <- res_best_model_g5_01[res_best_model_g5_01$corr_pred < 0.35, ]
+
+
+PAMn <- (data_g5_01$PAM-min(data_g5_01$PAM))/(max(data_g5_01$PAM)-min(data_g5_01$PAM))
+VFSCn <- (data_g5_01$VFSC-min(data_g5_01$VFSC))/(max(data_g5_01$VFSC)-min(data_g5_01$VFSC))
+
+data <- data.frame(PAMn,VFSCn)
+
+lag<-list(PAMn = test_best_model_g5_01[nrow(test_best_model_g5_01),1],VFSCn = 0)
+signal.train <- retardos_multi(data, lag)
+retDatos=signal.train$folded.signal
+
+x=subset(retDatos, select = -VFSCn)
+y=retDatos$VFSCn
+
+best_model_g5_01 <- svm(x, y, kernel = "radial",type = "nu-regression", cost = test_best_model_g5_01[nrow(test_best_model_g5_01),2],
+                        nu = test_best_model_g5_01[nrow(test_best_model_g5_01),3], gamma=test_best_model_g5_01[nrow(test_best_model_g5_01),4])
+
+print(best_model_g5_01)
+
+inverseStep=matrix(1,(300/Ts),1)
+inverseStep[(150/Ts):(300/Ts),1]=0
+
+PAMn=inverseStep
+VFSCn=inverseStep 
+
+data <- data.frame(PAMn, VFSCn)
+lag <- list(PAMn = test_best_model_g5_01[nrow(test_best_model_g5_01),1],VFSCn = 0)
+
+signal.train <- retardos_multi(data, lag)
+
+retDatos = signal.train$folded.signal
+x = subset(retDatos, select = -VFSCn)
+
+
+stepTime=seq(Ts,(length(retDatos$PAMn))*Ts,Ts)
+
+stepResponse <- predict(best_model_g5_01, x)
+
+#which.max(stepResponse)
+
+#stepResponse[745] <- stepResponse[745] - max(stepResponse)/2
+#stepResponse[746] <- stepResponse[746] - max(stepResponse)/2
+
+
+plot(stepTime,retDatos$PAMn,type="l", col="red")
+lines(stepTime[1:1495],stepResponse, col = "blue")
+legend("topright", c("Escalon de presión", "respuesta al escalon"), title = "autorregulacion", pch = 1, col=c("red","blue"),lty=c(1,1),inset = 0.01)
+
+
+
+formula <- data_g5_01$VFSC ~ data_g5_01$PAM
+
+best_model_g5_01_sinnormalizar <- svm(formula, data_g5_01, kernel = "radial",type = "nu-regression", cost = res_best_model_g5_01[nrow(res_best_model_g5_01) - 5,2],
+                        nu = res_best_model_g5_01[nrow(res_best_model_g5_01) - 5,3], gamma=res_best_model_g5_01[nrow(res_best_model_g5_01) - 5,4])
+
+
+
+
+VFSC_tunedModel <- predict(best_model_g5_01_sinnormalizar, data_g5_01$PAM)
+
+plot(Tiempo, data_g5_01$VFSC, type="l", col = "blue")
+lines(Tiempo, VFSC_tunedModel, col = "red")
+#lines(Tiempo, stepResponse, col = "blue")
+
+legend("topright", c("VFSC","VFSC_estimated"), col = c("blue", "red"),
+       title = "VFSC vs VFSC estimado",  lty=1:2, cex=0.5)
+
+
+
+
+
+inverseStep=matrix(1,(300/Ts),1)
+inverseStep[(150/Ts):(300/Ts),1]=0
+
+PAMn=inverseStep
+VFSCn=inverseStep 
+
+data <- data.frame(PAMn, VFSCn)
+lag <- list(PAMn = res_best_model_g5_01[nrow(res_best_model_g5_01) - 5,1],VFSCn = 0)
+
+signal.train <- retardos_multi(data, lag)
+
+retDatos = signal.train$folded.signal
+x = subset(retDatos, select = -VFSCn)
+
+
+stepTime=seq(Ts,(length(retDatos$PAMn))*Ts,Ts)
+
+stepResponse <- predict(best_model_g5_01_sinnormalizar, retDatos$PAM)
+
+plot(stepTime,retDatos$PAMn,type="l", col="red")
+lines(stepTime[1:1494],stepResponse, col = "blue")
+legend("topright", c("Escalon de presión", "respuesta al escalon"), title = "autorregulacion", pch = 1, col=c("red","blue"),lty=c(1,1),inset = 0.01)
+
+#=============================================
+# Comportamiento modelo G5-02
+#=============================================
+#Utilizando el mejor modelo obtenido
+res_best_model_g5_02 <- read.csv("./output/best_models_g5_02_B.csv")
+
+PAMn <- (data_g5_02$PAM-min(data_g5_02$PAM))/(max(data_g5_02$PAM)-min(data_g5_02$PAM))
+VFSCn <- (data_g5_02$VFSC-min(data_g5_02$VFSC))/(max(data_g5_02$VFSC)-min(data_g5_02$VFSC))
+
+data <- data.frame(PAMn,VFSCn)
+
+lag<-list(PAMn = res_best_model_g5_02[nrow(res_best_model_g5_02) - 5,1],VFSCn = 0)
+signal.train <- retardos_multi(data, lag)
+retDatos=signal.train$folded.signal
+
+x=subset(retDatos, select = -VFSCn)
+y=retDatos$VFSCn
+
+best_model_g5_02 <- svm(x, y, kernel = "radial",type = "nu-regression", cost = res_best_model_g5_02[nrow(res_best_model_g5_02) -5,2],
+                        nu = res_best_model_g5_02[nrow(res_best_model_g5_02) - 5,3], gamma=res_best_model_g5_02[nrow(res_best_model_g5_02) - 5,4])
+
+print(best_model_g5_02)
+
+inverseStep=matrix(1,(300/Ts),1)
+inverseStep[(150/Ts):(300/Ts),1]=0
+
+PAMn=inverseStep
+VFSCn=inverseStep 
+
+data <- data.frame(PAMn, VFSCn)
+lag <- list(PAMn = res_best_model_g5_02[nrow(res_best_model_g5_02) - 5,1],VFSCn = 0)
+
+signal.train <- retardos_multi(data, lag)
+
+retDatos = signal.train$folded.signal
+x = subset(retDatos, select = -VFSCn)
+
+
+stepTime=seq(Ts,(length(retDatos$PAMn))*Ts,Ts)
+
+stepResponse <- predict(best_model_g5_02, x)
+
+plot(stepTime,retDatos$PAMn,type="l", col="red")
+lines(stepTime[1:1495],stepResponse, col = "blue")
+legend("topright", c("Escalon de presión", "respuesta al escalon"), title = "autorregulacion", pch = 1, col=c("red","blue"),lty=c(1,1),inset = 0.01)
+
+
+formula <- data_g5_02$VFSC ~ data_g5_02$PAM
+best_model_g5_02_sinnormalizar <- svm(formula, data_g5_02, kernel = "radial",type = "nu-regression", cost = res_best_model_g5_02[nrow(res_best_model_g5_02),2],
+                                      nu = res_best_model_g5_02[nrow(res_best_model_g5_02),3], gamma=res_best_model_g5_02[nrow(res_best_model_g5_02),4])
+
+
+VFSC_tunedModel <- predict(best_model_g5_02_sinnormalizar, data_g5_02$PAM)
+
+plot(Tiempo, data_g5_02$VFSC, type="l", col = "blue")
+lines(Tiempo, VFSC_tunedModel, col = "red")
+
+legend("topright", c("VFSC","VFSC_estimated"), col = c("blue", "red"),
+       title = "VFSC vs VFSC estimado",  lty=1:2, cex=0.5)
+
